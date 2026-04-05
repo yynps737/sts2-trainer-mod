@@ -104,7 +104,10 @@ if ($LASTEXITCODE -ne 0) {
 $constants = Get-Content -Raw -Encoding UTF8 $constantsPath
 $gameVersion = Get-ConstantValue -Source $constants -Name 'SupportedGameVersion'
 $gameCommit = Get-ConstantValue -Source $constants -Name 'SupportedCommit'
+$modId = Get-ConstantValue -Source $constants -Name 'ModId'
 $modName = Get-ConstantValue -Source $constants -Name 'ModName'
+$modAuthor = Get-ConstantValue -Source $constants -Name 'ModAuthor'
+$modDescription = Get-ConstantValue -Source $constants -Name 'ModDescription'
 $changelogSection = Get-ChangelogSection -Path $changelogPath -TargetVersion $Version
 $assemblyVersion = '{0}.0' -f (($Version -replace '-.*$',''))
 
@@ -148,6 +151,8 @@ Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $assetPath -F
 $assetsToHash = [System.Collections.Generic.List[string]]::new()
 $assetsToHash.Add($assetPath)
 
+$primaryAssetHash = (Get-FileHash -Algorithm SHA256 $assetPath).Hash.ToLowerInvariant()
+
 if ($IncludePdb) {
     if (-not (Test-Path $pdbPath)) {
         throw "PDB requested but not found: $pdbPath"
@@ -160,13 +165,69 @@ if ($IncludePdb) {
     $symbolsAssetPath = Join-Path $resolvedOutputRoot $symbolsAssetName
     Compress-Archive -Path (Join-Path $symbolsRoot '*') -DestinationPath $symbolsAssetPath -Force
     $assetsToHash.Add($symbolsAssetPath)
+    $symbolsAssetHash = (Get-FileHash -Algorithm SHA256 $symbolsAssetPath).Hash.ToLowerInvariant()
 }
 
 $hashLines = foreach ($asset in $assetsToHash) {
     $hash = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLowerInvariant()
     '{0}  {1}' -f $hash, (Split-Path -Leaf $asset)
 }
-$hashLines | Set-Content -Encoding UTF8 (Join-Path $resolvedOutputRoot 'SHA256SUMS.txt')
+$checksumsPath = Join-Path $resolvedOutputRoot 'SHA256SUMS.txt'
+$hashLines | Set-Content -Encoding UTF8 $checksumsPath
+
+$releaseMetadata = [ordered]@{
+    modId = $modId
+    modName = $modName
+    author = $modAuthor
+    version = $Version
+    tag = "v$Version"
+    summary = $modDescription
+    platform = 'Windows Steam'
+    compatibilityStatus = 'Verified'
+    game = [ordered]@{
+        name = 'Slay the Spire 2'
+        version = $gameVersion
+        commit = $gameCommit
+    }
+    install = [ordered]@{
+        relativeRoot = 'mods/Sts2Trainer'
+        files = @(
+            'Sts2Trainer.dll',
+            'Sts2Trainer.json'
+        )
+        defaultHotkey = 'F9'
+    }
+    license = [ordered]@{
+        name = 'PolyForm Noncommercial 1.0.0'
+        url = 'https://polyformproject.org/licenses/noncommercial/1.0.0/'
+    }
+    channels = [ordered]@{
+        github = [ordered]@{
+            releaseTag = "v$Version"
+            primaryAsset = $assetName
+        }
+        nexus = [ordered]@{
+            manualUpload = $true
+            reusePrimaryAsset = $true
+        }
+    }
+    artifacts = @(
+        [ordered]@{
+            name = $assetName
+            sha256 = $primaryAssetHash
+        }
+    )
+}
+
+if ($IncludePdb) {
+    $releaseMetadata.artifacts += [ordered]@{
+        name = $symbolsAssetName
+        sha256 = $symbolsAssetHash
+    }
+}
+
+$releaseMetadataPath = Join-Path $resolvedOutputRoot 'release-metadata.json'
+$releaseMetadata | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $releaseMetadataPath
 
 $releaseNotes = @"
 Supported game build: $gameVersion / $gameCommit
@@ -198,5 +259,6 @@ $releaseNotes | Set-Content -Encoding UTF8 $releaseNotesPath
 
 Write-Host "Built $modName $Version"
 Write-Host "Package:  $assetPath"
-Write-Host "Checksums: $(Join-Path $resolvedOutputRoot 'SHA256SUMS.txt')"
+Write-Host "Checksums: $checksumsPath"
+Write-Host "Metadata:  $releaseMetadataPath"
 Write-Host "Notes:    $releaseNotesPath"

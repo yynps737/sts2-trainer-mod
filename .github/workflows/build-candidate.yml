@@ -1,0 +1,48 @@
+name: Build Candidate
+
+on:
+  push:
+    branches:
+      - main
+      - hotfix/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-candidate:
+    runs-on:
+      - self-hosted
+      - windows
+      - x64
+      - sts2-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Validate release environment
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Test-ReleaseEnvironment.ps1
+
+      - name: Validate repository state
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Test-RepositoryState.ps1
+
+      - name: Build candidate package
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Invoke-ReleaseBuild.ps1 -OutputRoot artifacts\candidate -SkipRepositoryStateCheck
+
+      - name: Upload candidate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sts2-trainer-candidate
+          path: artifacts/candidate/*

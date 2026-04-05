@@ -1,12 +1,20 @@
-name: Draft Release
+name: Publish Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: Manifest version from Sts2Trainer.json
+      tag:
+        description: Existing tag to publish or repair
         required: true
         type: string
+      draft:
+        description: Keep the release as draft
+        required: true
+        default: false
+        type: boolean
       include_symbols:
         description: Publish a separate symbols zip with the PDB
         required: true
@@ -17,14 +25,16 @@ permissions:
   contents: write
 
 concurrency:
-  group: draft-release-${{ inputs.version }}
+  group: publish-release-${{ github.ref_name || inputs.tag }}
   cancel-in-progress: false
 
 jobs:
-  draft-release:
+  publish-release:
     runs-on:
       - self-hosted
       - windows
+      - x64
+      - sts2-build
 
     steps:
       - name: Checkout
@@ -37,20 +47,39 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      - name: Guard release source branch
+      - name: Resolve tag and version
+        id: release_vars
         shell: powershell
         run: |
-          $refType = '${{ github.ref_type }}'
-          $refName = '${{ github.ref_name }}'
-          if ($refType -ne 'branch') {
-            throw "Draft releases must be dispatched from a branch ref."
+          if ('${{ github.event_name }}' -eq 'push') {
+            $tag = '${{ github.ref_name }}'
+            $draft = 'false'
+            $includeSymbols = 'false'
+          } else {
+            $rawTag = '${{ inputs.tag }}'
+            $tag = if ($rawTag.StartsWith('v')) { $rawTag } else { "v$rawTag" }
+            $draft = '${{ inputs.draft }}'.ToLowerInvariant()
+            $includeSymbols = '${{ inputs.include_symbols }}'.ToLowerInvariant()
           }
 
-          if ($refName -ne 'main' -and -not $refName.StartsWith('hotfix/')) {
-            throw "Draft releases are only allowed from main or hotfix/* branches. Current ref: $refName"
+          if ($tag -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw "Invalid release tag: $tag"
           }
 
-          Write-Host "Release source verified: $refName"
+          $version = $tag.Substring(1)
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "draft=$draft" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "include_symbols=$includeSymbols" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Verify tag exists remotely
+        shell: powershell
+        run: |
+          git fetch --tags --force
+          git rev-parse '${{ steps.release_vars.outputs.tag }}' | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "Tag not found: ${{ steps.release_vars.outputs.tag }}"
+          }
 
       - name: Validate release environment
         shell: powershell
@@ -62,46 +91,89 @@ jobs:
 
       - name: Build release package
         shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File .\scripts\Invoke-ReleaseBuild.ps1 -Version '${{ inputs.version }}' -IncludePdb:${{ inputs.include_symbols }} -SkipRepositoryStateCheck
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Invoke-ReleaseBuild.ps1 -Version '${{ steps.release_vars.outputs.version }}' -IncludePdb:${{ steps.release_vars.outputs.include_symbols }} -SkipRepositoryStateCheck
 
-      - name: Create draft GitHub release
+      - name: Create or update GitHub release
         shell: powershell
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $tag = '${{ steps.release_vars.outputs.tag }}'
+          $version = '${{ steps.release_vars.outputs.version }}'
+          $draft = '${{ steps.release_vars.outputs.draft }}' -eq 'true'
+          $isPrerelease = $version.Contains('-')
+
           $manifest = Get-Content -Encoding UTF8 .\src\Sts2Trainer.Mod\Sts2Trainer.json | ConvertFrom-Json
+          if ($manifest.version -ne $version) {
+            throw "Manifest version '$($manifest.version)' does not match release version '$version'."
+          }
+
           $constants = Get-Content -Raw -Encoding UTF8 .\src\Sts2Trainer.Shared\TrainerConstants.cs
           $gameVersion = [regex]::Match($constants, 'SupportedGameVersion = "([^"]+)"').Groups[1].Value
-          $tag = "v${{ inputs.version }}"
-          $title = "STS2 Trainer v${{ inputs.version }} for STS2 $gameVersion (Windows Steam)"
+          $title = "STS2 Trainer $tag for STS2 $gameVersion (Windows Steam)"
           $notesFile = (Resolve-Path .\artifacts\release\release-notes.md).Path
           $checksumFile = (Resolve-Path .\artifacts\release\SHA256SUMS.txt).Path
+          $metadataFile = (Resolve-Path .\artifacts\release\release-metadata.json).Path
           $zipAssets = Get-ChildItem .\artifacts\release\*.zip -File | ForEach-Object { $_.FullName }
-
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
-            throw "Release already exists for tag $tag"
-          }
 
           if (-not $zipAssets) {
             throw 'No release zip assets were generated.'
           }
 
-          $arguments = @(
-            'release', 'create', $tag,
-            '--target', $env:GITHUB_SHA,
-            '--draft',
+          gh release view $tag >$null 2>$null
+          $releaseExists = ($LASTEXITCODE -eq 0)
+
+          if (-not $releaseExists) {
+            $createArguments = @(
+              'release', 'create', $tag,
+              '--verify-tag',
+              '--title', $title,
+              '--notes-file', $notesFile
+            )
+
+            if ($draft) {
+              $createArguments += '--draft'
+            }
+
+            if ($isPrerelease) {
+              $createArguments += '--prerelease'
+            }
+
+            $createArguments += $zipAssets
+            $createArguments += $checksumFile
+            $createArguments += $metadataFile
+            gh @createArguments
+            if ($LASTEXITCODE -ne 0) {
+              throw "gh release create failed with exit code $LASTEXITCODE"
+            }
+            exit 0
+          }
+
+          gh release upload $tag $zipAssets $checksumFile $metadataFile --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "gh release upload failed with exit code $LASTEXITCODE"
+          }
+
+          $editArguments = @(
+            'release', 'edit', $tag,
+            '--verify-tag',
             '--title', $title,
             '--notes-file', $notesFile
           )
 
-          if ('${{ inputs.version }}' -match '-') {
-            $arguments += '--prerelease'
+          if ($draft) {
+            $editArguments += '--draft'
+          } else {
+            $editArguments += '--draft=false'
           }
 
-          $arguments += $zipAssets
-          $arguments += $checksumFile
-          gh @arguments
+          if ($isPrerelease) {
+            $editArguments += '--prerelease'
+          } else {
+            $editArguments += '--prerelease=false'
+          }
+
+          gh @editArguments
           if ($LASTEXITCODE -ne 0) {
-            throw "gh release create failed with exit code $LASTEXITCODE"
+            throw "gh release edit failed with exit code $LASTEXITCODE"
           }

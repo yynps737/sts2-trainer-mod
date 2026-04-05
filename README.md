@@ -72,12 +72,15 @@ The optional `.pck` export path also requires a local Godot editor binary. Norma
 - Tags use `vX.Y.Z`
 - Pre-releases carry the SemVer suffix in the version itself, for example `v0.2.0-beta.1`
 - Game compatibility is tracked separately from the mod version
+- Pushing a release tag is the canonical path for automated GitHub release publication
 
 Maintainer runbook:
 
 - [RELEASING.md](./RELEASING.md)
 - [CHANGELOG.md](./CHANGELOG.md)
 - [docs/release-terminology.md](./docs/release-terminology.md)
+- [docs/self-hosted-runner.md](./docs/self-hosted-runner.md)
+- [docs/release-channels.md](./docs/release-channels.md)
 
 ## Repository Layout
 

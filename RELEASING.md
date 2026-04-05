@@ -89,12 +89,11 @@ Use `None.` when there are no breaking changes.
 2. Update the supported game build constants when compatibility changes.
 3. Add the new changelog entry with compatibility and breaking-change sections.
 4. Commit the release candidate to a clean worktree.
-5. Make sure CI has passed for that exact commit.
-6. Run `scripts/Test-RepositoryState.ps1`.
-7. Run `scripts/Invoke-ReleaseBuild.ps1 -Version <manifest-version>`.
-8. Review the generated archive, checksum file, and release notes.
-9. Trigger the draft release workflow from `main` or `hotfix/*`.
-10. Publish the draft only after install and smoke-test checks pass.
+5. Make sure metadata CI and candidate build have passed for that exact commit.
+6. Push the release tag, for example `v0.1.0`.
+7. Let the `Publish Release` workflow build and publish the GitHub release automatically.
+8. Review the uploaded archive, checksum file, metadata file, and release notes.
+9. Mirror the same release asset set to other channels if needed.
 
 ## Release Assets
 
@@ -104,6 +103,8 @@ Use `None.` when there are no breaking changes.
   - `sts2-trainer-v<mod-version>-symbols.zip`
 - Separate checksum asset:
   - `SHA256SUMS.txt`
+- Separate metadata asset:
+  - `release-metadata.json`
 
 The main package contains:
 
@@ -123,3 +124,10 @@ The release workflow must run on a Windows self-hosted runner that already has:
 - `GitHub CLI`
 
 The workflow validates these prerequisites before it attempts a build.
+
+## Public Repository Safety
+
+This repository is public. Do not run untrusted pull-request code on the self-hosted runner.
+
+Repository metadata validation runs on GitHub-hosted runners.
+Candidate builds and release publication run only on the dedicated self-hosted runner label `sts2-build`.
