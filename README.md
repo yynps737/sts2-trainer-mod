@@ -1,21 +1,55 @@
 # STS2 Trainer
 
-This repository contains the source for `STS2 Trainer`, an in-game utility mod for `Slay the Spire 2`.
+`STS2 Trainer` is an in-game utility mod for `Slay the Spire 2`.
 
-The current implementation targets the Windows Steam build `v0.99.1 / 7ac1f450`. It provides a compact control panel for HP, block, energy, stars, shop overrides, reward shaping, and pacing controls.
+The current public build targets the Windows Steam game build `v0.99.1 / 7ac1f450`.
 
-## Repository Layout
+## Supported Build
 
-- `src/Sts2Trainer.Mod`: Godot / C# mod entry, runtime, UI, Harmony patches
-- `src/Sts2Trainer.Shared`: shared settings, feature descriptors, constants
+- Platform / Store: `Windows Steam`
+- Supported game build: `v0.99.1 / 7ac1f450`
+- Scope: `single-player`
+- Default toggle key: `F9`
 
-## Build
+`Safe Mode` keeps gameplay-affecting features constrained to the verified game build and single-player runs.
+
+## Install
+
+1. Exit the game completely.
+2. Extract the release archive.
+3. Copy the `Sts2Trainer` folder into:
+
+```text
+<Slay the Spire 2>\mods\
+```
+
+The final layout should look like this:
+
+```text
+<Slay the Spire 2>\mods\Sts2Trainer\Sts2Trainer.dll
+<Slay the Spire 2>\mods\Sts2Trainer\Sts2Trainer.json
+```
+
+## Upgrade
+
+1. Exit the game completely.
+2. Replace the existing `Sts2Trainer` folder with the newer release contents.
+3. Launch the game and verify the overlay opens with `F9`.
+
+## Remove
+
+Delete this folder:
+
+```text
+<Slay the Spire 2>\mods\Sts2Trainer
+```
+
+## Build From Source
 
 Requirements:
 
 - `Slay the Spire 2` installed through Steam
 - `.NET SDK 9`
-- `Godot .NET SDK 4.5.1`
 
 From the repository root:
 
@@ -23,36 +57,39 @@ From the repository root:
 dotnet build .\src\Sts2Trainer.Mod\Sts2Trainer.Mod.csproj
 ```
 
-The project file looks for the game in:
+The project file checks these default game paths on Windows:
 
 - `D:\SteamLibrary\steamapps\common\Slay the Spire 2`
 - `C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2`
 
-If your install path is different, pass `Sts2Path` to MSBuild.
+If your game lives elsewhere, pass `Sts2Path` to MSBuild.
 
-## Install
+The optional `.pck` export path also requires a local Godot editor binary. Normal mod builds do not.
 
-After a successful build, the mod is copied to:
+## Release Policy
 
-```text
-<Slay the Spire 2>\mods\Sts2Trainer
-```
+- Mod versions follow `SemVer`: `MAJOR.MINOR.PATCH`
+- Tags use `vX.Y.Z`
+- Pre-releases carry the SemVer suffix in the version itself, for example `v0.2.0-beta.1`
+- Game compatibility is tracked separately from the mod version
 
-Manual install is also supported. Copy these files into the same folder:
+Maintainer runbook:
 
-- `Sts2Trainer.dll`
-- `Sts2Trainer.json`
+- [RELEASING.md](./RELEASING.md)
+- [CHANGELOG.md](./CHANGELOG.md)
+- [docs/release-terminology.md](./docs/release-terminology.md)
 
-## Notes
+## Repository Layout
 
-- Default toggle key: `F9`
-- Language follows the game locale when `Auto` is selected
-- `Safe Mode` limits gameplay-affecting features to the verified game build and single-player runs
+- `src/Sts2Trainer.Mod`: Godot / C# mod entry, runtime, UI, Harmony patches
+- `src/Sts2Trainer.Shared`: shared settings, feature descriptors, constants
+- `scripts`: release validation and packaging scripts
 
 ## License
 
-This repository is **source-available**, not OSI open source.
+This repository is `source-available`, not OSI open source.
 
-It is provided under `PolyForm Noncommercial 1.0.0`. Commercial use is not permitted.
+It is provided under `PolyForm Noncommercial 1.0.0`. See the official PolyForm terms for the full definition of permitted uses.
 
-See [LICENSE.md](./LICENSE.md) for the license notice and official terms URL.
+- Repository notice: [LICENSE.md](./LICENSE.md)
+- Release package notice: `LICENSE.txt`

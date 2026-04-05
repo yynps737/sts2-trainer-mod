@@ -1,9 +1,9 @@
 {
   "id": "Sts2Trainer",
   "name": "STS2 Trainer",
-  "author": "kikib + Codex",
-  "description": "In-game trainer shell for Slay the Spire 2. Runtime-first, public-API-first, Harmony fallback.",
-  "version": "v0.1.0",
+  "author": "kikib",
+  "description": "In-game trainer mod for Slay the Spire 2.",
+  "version": "0.1.0",
   "has_pck": false,
   "has_dll": true,
   "dependencies": [],

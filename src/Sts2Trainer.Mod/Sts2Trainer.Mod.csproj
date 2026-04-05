@@ -10,6 +10,7 @@
     <AppOutputBase>$(MSBuildProjectDirectory)\</AppOutputBase>
     <PathMap>$(AppOutputBase)=.\</PathMap>
     <NoWarn>$(NoWarn);MSB3270</NoWarn>
+    <InstallToGame Condition="'$(InstallToGame)' == ''">true</InstallToGame>
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
@@ -49,7 +50,7 @@
     <Error Text="Slay the Spire 2 data not found. Set Sts2Path or install the game." Condition="'$(Sts2DataDir)' == '' or !Exists('$(Sts2DataDir)')" />
   </Target>
 
-  <Target Name="CopyToModsFolderOnBuild" AfterTargets="Build">
+  <Target Name="CopyToModsFolderOnBuild" AfterTargets="Build" Condition="'$(InstallToGame)' == 'true'">
     <MakeDir Directories="$(ModsPath)" />
     <ItemGroup>
       <TrainerArtifacts Include="$(TargetDir)Sts2Trainer.dll" />
