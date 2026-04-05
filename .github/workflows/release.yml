@@ -86,7 +86,22 @@ jobs:
 
       - name: Build release package
         shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File .\scripts\Invoke-ReleaseBuild.ps1 -Version '${{ steps.release_vars.outputs.version }}' -IncludePdb:${{ steps.release_vars.outputs.include_symbols }} -SkipRepositoryStateCheck
+        run: |
+          $arguments = @(
+            '-ExecutionPolicy', 'Bypass',
+            '-File', '.\scripts\Invoke-ReleaseBuild.ps1',
+            '-Version', '${{ steps.release_vars.outputs.version }}',
+            '-SkipRepositoryStateCheck'
+          )
+
+          if ('${{ steps.release_vars.outputs.include_symbols }}' -eq 'true') {
+            $arguments += '-IncludePdb'
+          }
+
+          & powershell @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "Invoke-ReleaseBuild.ps1 failed with exit code $LASTEXITCODE"
+          }
 
       - name: Create or update GitHub release
         shell: powershell
