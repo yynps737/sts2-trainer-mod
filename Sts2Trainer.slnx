@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sts2Trainer.Mod/Sts2Trainer.Mod.csproj" />
+    <Project Path="src/Sts2Trainer.Shared/Sts2Trainer.Shared.csproj" />
+  </Folder>
+</Solution>

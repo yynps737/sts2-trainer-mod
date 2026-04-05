@@ -1,0 +1,16 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Sts2Trainer"
+config/features=PackedStringArray("4.5", "C#", "Mobile")
+config/icon="res://icon.svg"
+
+[dotnet]
+
+project/assembly_name="Sts2Trainer"
+
+[rendering]
+
+renderer/rendering_method="mobile"

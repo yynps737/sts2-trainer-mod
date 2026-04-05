@@ -1,0 +1,71 @@
+<Project Sdk="Godot.NET.Sdk/4.5.1">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>true</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AssemblyName>Sts2Trainer</AssemblyName>
+    <RootNamespace>Sts2Trainer.Mod</RootNamespace>
+    <DefaultItemExcludes>$(DefaultItemExcludes);.godot/**;packages/**</DefaultItemExcludes>
+    <AppOutputBase>$(MSBuildProjectDirectory)\</AppOutputBase>
+    <PathMap>$(AppOutputBase)=.\</PathMap>
+    <NoWarn>$(NoWarn);MSB3270</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <Sts2Path Condition="'$(Sts2Path)' == '' and Exists('D:/SteamLibrary/steamapps/common/Slay the Spire 2')">D:/SteamLibrary/steamapps/common/Slay the Spire 2</Sts2Path>
+    <Sts2Path Condition="'$(Sts2Path)' == '' and Exists('C:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2')">C:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2</Sts2Path>
+    <Sts2DataDir>$(Sts2Path)/data_sts2_windows_x86_64</Sts2DataDir>
+    <ModsPath>$(Sts2Path)/mods/Sts2Trainer</ModsPath>
+    <GodotPath Condition="'$(GodotPath)' == '' and Exists('C:/megadot/MegaDot_v4.5.1-stable_mono_win64.exe')">C:/megadot/MegaDot_v4.5.1-stable_mono_win64.exe</GodotPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Sts2Trainer.Shared\FeatureContracts.cs" Link="Shared\FeatureContracts.cs" />
+    <Compile Include="..\Sts2Trainer.Shared\TrainerConstants.cs" Link="Shared\TrainerConstants.cs" />
+    <Compile Include="..\Sts2Trainer.Shared\TrainerFeatures.cs" Link="Shared\TrainerFeatures.cs" />
+    <Compile Include="..\Sts2Trainer.Shared\TrainerSettings.cs" Link="Shared\TrainerSettings.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(Sts2DataDir)')">
+    <Reference Include="0Harmony">
+      <HintPath>$(Sts2DataDir)/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="sts2">
+      <HintPath>$(Sts2DataDir)/sts2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Sts2Trainer.json" />
+    <None Include="project.godot" />
+    <None Include="export_presets.cfg" />
+    <None Include="icon.svg" />
+  </ItemGroup>
+
+  <Target Name="EnsureGameReferences" BeforeTargets="Build">
+    <Error Text="Slay the Spire 2 data not found. Set Sts2Path or install the game." Condition="'$(Sts2DataDir)' == '' or !Exists('$(Sts2DataDir)')" />
+  </Target>
+
+  <Target Name="CopyToModsFolderOnBuild" AfterTargets="Build">
+    <MakeDir Directories="$(ModsPath)" />
+    <ItemGroup>
+      <TrainerArtifacts Include="$(TargetDir)Sts2Trainer.dll" />
+      <TrainerArtifacts Include="$(TargetDir)Sts2Trainer.pdb" Condition="Exists('$(TargetDir)Sts2Trainer.pdb')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TrainerArtifacts)" DestinationFolder="$(ModsPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="Sts2Trainer.json" DestinationFolder="$(ModsPath)" SkipUnchangedFiles="true" />
+    <Delete Files="$(ModsPath)\Sts2Trainer.Shared.dll" ContinueOnError="true" />
+    <Delete Files="$(ModsPath)\Sts2Trainer.Shared.pdb" ContinueOnError="true" />
+  </Target>
+
+  <Target Name="ExportGodotPack" AfterTargets="Publish" Condition="'$(GodotPath)' != '' and Exists('$(GodotPath)') and '$(IsInnerGodotExport)' != 'true'">
+    <Message Text="Exporting Sts2Trainer.pck" Importance="high" />
+    <Exec
+      Command="&quot;$(GodotPath)&quot; --headless --export-pack &quot;BasicExport&quot; &quot;$(ModsPath)/Sts2Trainer.pck&quot;"
+      EnvironmentVariables="IsInnerGodotExport=true;MSBUILDDISABLENODEREUSE=1"
+      ContinueOnError="WarnAndContinue" />
+  </Target>
+</Project>

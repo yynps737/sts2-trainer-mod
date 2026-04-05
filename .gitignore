@@ -1,0 +1,10 @@
+.vs/
+.vscode/
+bin/
+obj/
+.godot/
+*.user
+*.suo
+*.pdb
+*.log
+artifacts/
