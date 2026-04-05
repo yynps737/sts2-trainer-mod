@@ -102,7 +102,7 @@ if ($supportedCommit -notmatch '^[0-9a-f]{8}$') {
     throw "SupportedCommit must be an 8-character lowercase hex string: $supportedCommit"
 }
 
-if ($changelog -notmatch '(?m)^## \[Unreleased\]$') {
+if ($changelog -notmatch '(?m)^## \[Unreleased\]\r?$') {
     throw 'CHANGELOG.md must contain an [Unreleased] section.'
 }
 
